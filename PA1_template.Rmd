@@ -1,25 +1,151 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "activity"
+author: "Michael"
+date: "31 August 2016"
+output: html_document
 ---
 
+## Load required pakcages
+```{r setoptions, warning=FALSE, echo=TRUE}
+library(ggplot2)
+library(gridExtra)
+```
+## Set default workding directory
+```{r}
+setwd("C:\\Users\\mli\\Documents\\Personal\\Training\\Reproducible Research\\Assignment 1\\Git")
+```
 
 ## Loading and preprocessing the data
 
-
+```{r}
+rawData <- read.csv("activity.csv")
+summary(rawData)
+```
 
 ## What is mean total number of steps taken per day?
 
+### calculate total number of steps per day
+```{r}
+tot_steps_per_day <- aggregate(steps ~ date, data = rawData, sum)
+```
+
+### plot total number of steps per day in histgram
+```{r}
+plot1<-ggplot(tot_steps_per_day, aes(steps)) +
+        geom_histogram(binwidth = 2500) +
+        labs(x="steps", y=expression("number of records")) + 
+        labs(title=expression("Total steps per day with missing value")) +
+        ylim(0, 25)
+print(plot1)
+```
+
+### Calculate the mean and median of the total number of steps taken per day
+```{r}
+mean_steps <- mean(tot_steps_per_day$steps)
+mean_steps
+median_steps <- median(tot_steps_per_day$steps)
+median_steps
+```
 
 
 ## What is the average daily activity pattern?
 
+### calculate the mean of each interval across all days
+```{r}
+mean_steps_interval <- aggregate(steps ~ interval, rawData, mean)
+```
+### plot average numer of stpes by interval across all days
+```{r}
+plot(mean_steps_interval$interval, mean_steps_interval$steps, type='l', 
+     main="Average number of steps across all days", xlab="Interval", 
+     ylab="Average number of steps",
+     col = 'red')
+
+```
+
+### maximum number of steps
+```{r}
+which.max(mean_steps_interval$steps)
+mean_steps_interval[104,]
+```
 
 
 ## Imputing missing values
 
+###total number of missing values in the dataset
+```{r}
+num_rows <- nrow(rawData[is.na(rawData$steps), ])
+```
 
+### fill the missing values by using mean of number of steps for each interval
+```{r}
+mean_steps_interval <- aggregate(steps ~ interval, data = rawData, mean)
+fillNA <- numeric()
+for (i in 1:nrow(rawData)) {
+    obs <- rawData[i, ]
+    if (is.na(obs$steps)) {
+        steps <- subset(mean_steps_interval, interval == obs$interval)$steps
+    } else {
+        steps <- obs$steps
+    }
+    fillNA <- c(fillNA, steps)
+}
+```
+
+### Create a new dataset that is equal to the original dataset but with the missing data filled in.
+```{r}
+newData<-rawData
+newData$steps <- fillNA
+```
+
+### plot total number of steps per day in histgram by using new data set
+```{r}
+tot_steps_per_day_new <- aggregate(steps ~ date, data = newData, sum)
+plot4<-ggplot(tot_steps_per_day_new, aes(steps)) +
+        geom_histogram(binwidth = 2500) +
+        labs(x="steps", y=expression("number of records")) + 
+        labs(title=expression("Total steps per day with missig filled")) +
+        ylim(0, 25)
+grid.arrange(plot1, plot4, ncol=2)
+```
+
+### Calculate the mean and median of the total number of steps taken per day by using new data set
+```{r}
+mean_steps_new <- mean(tot_steps_per_day_new$steps)
+mean_steps_new
+median_steps_new <- median(tot_steps_per_day_new$steps)
+median_steps_new
+```
+
+### The impact of inputting missing data
+```{r}
+mean_diff <- mean_steps_new - mean_steps
+median_diff <- median_steps_new - median_steps
+```
+
+The difference between mean values is `r mean_diff`. The difference between two median values is `r median_diff`. The impact of filling missing value is minimal.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+### create new attribute in the data set with value "weekend" and "weekdays"
+```{r}
+newData$day_in_week <- ifelse(weekdays(as.Date(newData$date)) %in% c("Saturday", "Sunday"), "weekend", "weekdays")
+```
+
+### calculate the mean of total number of steps taken for each interval and day type
+```{r}
+mean_agg <- aggregate(data = newData, steps~day_in_week+interval, FUN = mean)
+
+```
+
+### create plots
+```{r}
+ggplot(mean_agg, aes(x=interval, y=steps, color = day_in_week)) +
+    geom_line() +
+    facet_wrap(~day_in_week, ncol = 1, nrow=2)+
+    labs(title = "Time series plot of average steps in different intervals", x = "5-minute interval", y = "Average steps")
+```
+
+
+As graph demonstrates that the activity patterns of weekdays and weekend are different. 
+In weekdays, there's a big peak at interval 800 following a few small ones. While on weekend, couple of big peaks between 800 and 2000. Even the mean of weekdays and weekend are similar, but the analysis suggests that people take more steps on weekend. 
